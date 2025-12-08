@@ -31,6 +31,9 @@
 		"react-markdown": "^9.0.1",
 		"remark-gfm": "^4.0.0",
 		"rehype-raw": "^7.0.0",
+		"rehype-sanitize": "^6.0.0",
+		"hast-util-sanitize": "^5.0.0",
+		"monaco-editor": "^0.46.0",
 		"asab_webui_components": "^27.1.1",
 		"asab_webui_shell": "^27.1.1"
 	},

@@ -51,21 +51,6 @@
 	}
 }
 
-.markdown-editor {
-	padding: 1rem;
-	max-height: calc(100vh - 8rem);
-
-	border: none;
-	outline: none;
-	resize: none;
-
-	font-family: monospace;
-
-	overflow-y: auto;
-	tab-size: 2;
-}
-
-
 .note-viewer-preview {
 	max-height: calc(100vh - 8rem);
 

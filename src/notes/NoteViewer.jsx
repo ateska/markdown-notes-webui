@@ -6,6 +6,7 @@ import {
 } from 'reactstrap';
 
 import { MarkdownComponent } from './MarkdownComponent.jsx';
+import MarkdownEditor from './MarkdownEditor.jsx';
 import './NoteViewer.scss';
 
 export default function NoteViewer({ 
@@ -295,18 +296,13 @@ export default function NoteViewer({
 			<CardBody className='p-0'>
 				<div className={`note-viewer-grid h-100 note-viewer-grid-${viewMode}`}>
 					{(viewMode === 'edit' || viewMode === 'split') && (
-						<textarea
-							id="note-editor"
-							className="markdown-editor"
+						<MarkdownEditor
 							ref={editorRef}
 							value={editedContent}
 							onChange={handleContentChange}
-							onSelect={handleCursorChange}
-							onClick={handleCursorChange}
-							onKeyUp={handleCursorChange}
+							onCursorChange={handleCursorChange}
 							onScroll={handleEditorScroll}
 							placeholder="Start writing your note..."
-							spellCheck="false"
 						/>
 					)}
 					
