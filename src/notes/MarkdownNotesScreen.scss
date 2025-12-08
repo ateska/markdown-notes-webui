@@ -1,0 +1,31 @@
+
+.notes-sidebar {
+	overflow: hidden;
+}
+
+
+.notes-container {
+	display: grid;
+	grid-template-rows: 1fr;
+	grid-template-areas: "sidebar main";	gap: 0.5rem;
+}
+
+.sidebar-visible {
+	grid-template-columns: 25rem 1fr;
+	gap: 0.5rem;
+	transition: grid-template-columns 0.3s ease-in-out;
+}
+
+.sidebar-hidden {
+	grid-template-columns: 0 100%;
+	gap: 0;
+	transition: grid-template-columns 0.3s ease-in-out;
+}
+
+.notes-sidebar {
+	grid-area: sidebar;
+}
+
+.notes-main {
+	grid-area: main;
+}

@@ -1,0 +1,26 @@
+{
+	"i18n": {
+		"language": {
+			"en": "English",
+			"cs": "Česky"
+		},
+		"Language": "Language"
+	},
+	"Fido2ListScreen": {
+		"FIDO2 Credentials": "FIDO2 Credentials",
+		"Register": "Register",
+		"Verify": "Verify",
+		"Type": "Type",
+		"Sign Count": "Sign Count",
+		"Registered At": "Registered At",
+		"Failed to fetch FIDO2 credentials": "Failed to fetch FIDO2 credentials",
+		"FIDO2 credential successfully registered": "FIDO2 credential successfully registered",
+		"Registration failed": "Registration failed",
+		"FIDO2 credential registration failed": "FIDO2 credential registration failed",
+		"FIDO2 credential successfully verified": "FIDO2 credential successfully verified",
+		"Authentication failed": "Authentication failed",
+		"FIDO2 credential verification failed": "FIDO2 credential verification failed",
+		"FIDO2 credential successfully deleted": "FIDO2 credential successfully deleted",
+		"FIDO2 credential deletion failed": "FIDO2 credential deletion failed"
+	}
+}

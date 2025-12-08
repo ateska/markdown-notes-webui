@@ -1,0 +1,167 @@
+.note-viewer-grid {
+	display: grid;
+	grid-template-rows: 1fr;
+	grid-template-areas: "editor preview";
+	
+}
+
+.note-breadcrumb {
+
+	.separator {
+		margin: 0 0.3rem;
+		opacity: 0.5;
+	}
+
+	.current {
+		color: var(--bs-body-color);
+	}
+}
+
+.saving-indicator {
+	animation: saving 0.6s ease-in-out infinite;
+	display: inline-block;
+}
+
+@keyframes saving {
+	0%, 100% { transform: translateY(0); }
+	50% { transform: translateY(-3px); }
+}
+
+.note-viewer-grid-split {
+	grid-template-columns: 1fr 1fr;
+	gap: 0;
+}
+
+.note-viewer-grid-edit {
+	grid-template-columns: 1fr 0;
+	gap: 0;
+}
+
+.note-viewer-grid-preview {
+	grid-template-columns: 0 1fr;
+	gap: 0;
+}
+
+
+.note-viewer-editor {
+	grid-area: editor;
+
+	textarea {
+		overflow: scroll;
+	}
+}
+
+.markdown-editor {
+	padding: 1rem;
+	max-height: calc(100vh - 8rem);
+
+	border: none;
+	outline: none;
+	resize: none;
+
+	font-family: monospace;
+
+	overflow-y: auto;
+	tab-size: 2;
+}
+
+
+.note-viewer-preview {
+	max-height: calc(100vh - 8rem);
+
+	grid-area: preview;
+	overflow: scroll;
+}
+
+
+.note-content {
+	padding: 2rem;
+
+	h1, h2, h3, h4, h5, h6 {
+		margin-top: 1.5em;
+		margin-bottom: 0.5em;
+
+		&:first-child {
+			margin-top: 0;
+		}
+	}
+
+	h2 {
+		border-bottom: 1px solid var(--bs-border-color);
+		padding-bottom: 0.3em;
+	}
+
+	p {
+		margin-bottom: 1rem;
+	}
+
+	a {
+		color: var(--bs-primary);
+	}
+
+	ul, ol {
+		margin-bottom: 1rem;
+		padding-left: 1.5rem;
+	}
+
+	blockquote {
+		margin: 1rem 0;
+		padding: 0.5rem 1rem;
+		border-left: 4px solid var(--bs-primary);
+		background: var(--bs-tertiary-bg);
+
+		p:last-child {
+			margin-bottom: 0;
+		}
+	}
+
+	pre {
+		margin: 1rem 0;
+		padding: 1rem;
+		background: var(--bs-tertiary-bg);
+		border-radius: 4px;
+		overflow-x: auto;
+		font-family: monospace;
+		font-size: 0.85rem;
+
+		code {
+			background: none;
+			padding: 0;
+		}
+	}
+
+	code {
+		padding: 0.15em 0.4em;
+		background: var(--bs-tertiary-bg);
+		border-radius: 3px;
+		font-family: monospace;
+		font-size: 0.85em;
+	}
+
+	hr {
+		margin: 2rem 0;
+		border: none;
+		border-top: 1px solid var(--bs-border-color);
+	}
+
+	table {
+		width: 100%;
+		margin: 1rem 0;
+		border-collapse: collapse;
+
+		th, td {
+			padding: 0.5rem;
+			border: 1px solid var(--bs-border-color);
+			text-align: left;
+		}
+
+		th {
+			background: var(--bs-tertiary-bg);
+		}
+	}
+
+	img {
+		max-width: 100%;
+		height: auto;
+	}
+}

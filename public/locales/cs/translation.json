@@ -1,0 +1,26 @@
+{
+	"i18n": {
+		"language": {
+			"en": "English",
+			"cs": "Česky"
+		},
+		"Language": "Jazyk"
+	},
+	"Fido2ListScreen": {
+		"FIDO2 Credentials": "FIDO2 Přihlašovací Údaje",
+		"Register": "Registrovat",
+		"Verify": "Ověřit",
+		"Type": "Typ",
+		"Sign Count": "Počet Podpisů",
+		"Registered At": "Registrováno",
+		"Failed to fetch FIDO2 credentials": "Nepodařilo se načíst FIDO2 údaje",
+		"FIDO2 credential successfully registered": "FIDO2 údaje byly úspěšně registrovány",
+		"Registration failed": "Registrace selhala",
+		"FIDO2 credential registration failed": "Registrace FIDO2 údajů selhala",
+		"FIDO2 credential successfully verified": "FIDO2 údaje byly úspěšně ověřeny",
+		"Authentication failed": "Ověření selhalo",
+		"FIDO2 credential verification failed": "Ověření FIDO2 údajů selhalo",
+		"FIDO2 credential successfully deleted": "FIDO2 údaje byly úspěšně smazány",
+		"FIDO2 credential deletion failed": "Smazání FIDO2 údajů selhalo"
+	}
+}
