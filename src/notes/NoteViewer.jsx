@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { useAppSelector } from 'asab_webui_components';
-import { Button } from 'reactstrap';
+import { useParams } from 'react-router';
 import {
 	Card, CardHeader, CardBody,
+	Button,
 } from 'reactstrap';
+import { useAppSelector } from 'asab_webui_components';
 
 import { MarkdownComponent } from './MarkdownComponent.jsx';
 import MarkdownEditor from './MarkdownEditor.jsx';
@@ -11,10 +12,10 @@ import './NoteViewer.scss';
 
 export default function NoteViewer({ 
 	app, 
-	notePath, 
 	setSidebarVisible,
 	sidebarVisible
 }) {
+	let { "*": notePath } = useParams();
 	if (notePath === null) {
 		// No note selected, don't render anything
 		return null;
@@ -35,9 +36,9 @@ export default function NoteViewer({
 	const saveTimeoutRef = useRef(null);
 	const syncDebounceRef = useRef(null);
 
-	const loadNote = async () => {
+	const loadNote = async (loadPath) => {
 		try {
-			const response = await MarkdownNotesAPI.get(`${tenant}/note/${notePath}`);
+			const response = await MarkdownNotesAPI.get(`${tenant}/note/${loadPath}`);
 			const noteContent = response.data.data.content;
 			setEditedContent(noteContent);
 		} catch (err) {
@@ -50,12 +51,13 @@ export default function NoteViewer({
 		}
 	}
 
-	const saveNote = async (contentToSave) => {
+	const saveNote = async (savePath, contentToSave) => {
 		try {
-			await MarkdownNotesAPI.put(`${tenant}/note/${notePath}`, {
+			await MarkdownNotesAPI.put(`${tenant}/note/${savePath}`, {
 				content: contentToSave
 			});
 			setIsSaving(false);
+			// Only for debugging purposes: app.addAlert('success', `Note saved at ${savePath}`);
 		} catch (err) {
 			app.addAlertFromException(err, 'Failed to save note');
 		}
@@ -63,32 +65,32 @@ export default function NoteViewer({
 
 	useEffect(() => {
 		setEditedContent('');
-		loadNote();
+		loadNote(notePath);
 
 		// Cleanup: clear pending save timeout when switching notes or unmounting
 		return () => {
 			if (saveTimeoutRef.current) {
+				saveNote(notePath, editedContent);
+				clearTimeout(saveTimeoutRef.current);
 				saveTimeoutRef.current = null;
-				// Intentionally not clearing the timeout to allow for delayed saves
 			}
 		};
 	}, [notePath]);
 
 	// Handle content changes in editor
-	const handleContentChange = (e) => {
-		const newContent = e.target.value;
+	const handleContentChange = (newContent, savePath) => {
 		setEditedContent(newContent);
 
 		setIsSaving(true);
 
-		// Clear any pending save timeout
+		// Schedule a new save after 1000ms of inactivity
 		if (saveTimeoutRef.current) {
 			clearTimeout(saveTimeoutRef.current);
 			saveTimeoutRef.current = null;
 		}
-		// Schedule a new save after 1000ms of inactivity
 		saveTimeoutRef.current = setTimeout(() => {
-			saveNote(newContent);
+			saveNote(savePath, newContent);
+			saveTimeoutRef.current = null;
 		}, 1000);
 		
 		// Sync after content change with small delay to let render complete
@@ -307,6 +309,7 @@ export default function NoteViewer({
 							onChange={handleContentChange}
 							onCursorChange={handleCursorChange}
 							onScroll={handleEditorScroll}
+							notePath={notePath}
 							placeholder="Start writing your note..."
 						/>
 					)}

@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router';
+
 import {
 	Spinner,
 	Input, Button,
@@ -15,7 +17,6 @@ const RECENT_CHANGE_THRESHOLD = 60;
 function DirectoryItem({ 
 	item,
 	selectedNote, 
-	onNoteSelect,
 	onRenameNote,
 	onDeleteNote,
 	onRenameDirectory,
@@ -27,9 +28,10 @@ function DirectoryItem({
 	recentlyChangedPaths,
 	knownMtimes,
 }) {
+	const navigate = useNavigate();
 	const isDirectory = item.type === 'directory';
 	const [isExpanded, setIsExpanded] = useState(expandedPaths.has(item.path));
-
+	
 	// Check if this item or any child was recently changed
 	const isRecentlyChanged = recentlyChangedPaths.has(item.path);
 	const hasRecentlyChangedChild = isDirectory && item.children?.some(
@@ -57,7 +59,7 @@ function DirectoryItem({
 		} else {
 			// Remove .md extension for the route
 			const notePath = item.path.endsWith('.md') ? item.path.slice(0, -3) : item.path;
-			onNoteSelect(notePath);
+			navigate(`/notes/${notePath}`);
 		}
 	};
 
@@ -175,7 +177,6 @@ function DirectoryItem({
 							key={child.path}
 							item={child}
 							selectedNote={selectedNote}
-							onNoteSelect={onNoteSelect}
 							onRenameNote={onRenameNote}
 							onDeleteNote={onDeleteNote}
 							onRenameDirectory={onRenameDirectory}
@@ -217,9 +218,12 @@ function getExpandedPaths(selectedNote) {
 	return paths;
 }
 
-export default function DirectoryTree({ app, selectedNote, onNoteSelect, onNoteDeleted }) {
+export default function DirectoryTree({app}) {
 	const tenant = useAppSelector(state => state.tenant?.current);
 	const tree = useAppSelector(state => state.notes.tree);
+	const navigate = useNavigate();
+
+	let { "*": selectedNote } = useParams();
 
 	if (tree === "init") {
 		// The notes tree has not been loaded yet, show a loading spinner
@@ -299,13 +303,13 @@ export default function DirectoryTree({ app, selectedNote, onNoteSelect, onNoteD
 			// TODO: await loadTree(false);
 			
 			// Select/open the new note
-			onNoteSelect(notePath);
+			navigate(`/notes/${notePath}`);
 		} catch (err) {
 			app.addAlertFromException(err, 'Failed to create note');
 		} finally {
 			setIsCreating(false);
 		}
-	}, [tenant, MarkdownNotesAPI, onNoteSelect, isCreating]);
+	}, [tenant, isCreating]);
 
 	// Create note in a specific directory (directory hover button)
 	const handleCreateNoteInDir = useCallback(async (directory) => {
@@ -324,13 +328,13 @@ export default function DirectoryTree({ app, selectedNote, onNoteSelect, onNoteD
 			// TODO: await loadTree(false);
 			
 			// Select/open the new note
-			onNoteSelect(notePath);
+			navigate(`/notes/${notePath}`);
 		} catch (err) {
 			app.addAlertFromException(err, 'Failed to create note');
 		} finally {
 			setIsCreating(false);
 		}
-	}, [tenant, MarkdownNotesAPI, onNoteSelect, isCreating]);
+	}, [tenant, isCreating]);
 
 	// Handle opening rename modal
 	const handleOpenRenameModal = useCallback((notePath, currentName) => {
@@ -362,7 +366,7 @@ export default function DirectoryTree({ app, selectedNote, onNoteSelect, onNoteD
 
 			// If the renamed note was selected, navigate to the new path
 			if (selectedNote === renameNotePath) {
-				onNoteSelect(newNotePath);
+				navigate(`/notes/${newNotePath}`);
 			}
 
 			setRenameModalOpen(false);
@@ -376,7 +380,7 @@ export default function DirectoryTree({ app, selectedNote, onNoteSelect, onNoteD
 		} finally {
 			setIsRenaming(false);
 		}
-	}, [tenant, renameNotePath, renameNewName, isRenaming, MarkdownNotesAPI, selectedNote, onNoteSelect]);
+	}, [tenant, renameNotePath, renameNewName, isRenaming, selectedNote]);
 
 	// Handle opening delete modal
 	const handleOpenDeleteModal = useCallback((notePath) => {
@@ -398,11 +402,6 @@ export default function DirectoryTree({ app, selectedNote, onNoteSelect, onNoteD
 			// Refresh the tree
 			// TODO: await loadTree(false);
 
-			// If the deleted note was selected, notify parent
-			if (selectedNote === deleteNotePath && onNoteDeleted) {
-				onNoteDeleted(deleteNotePath);
-			}
-
 			setDeleteModalOpen(false);
 		} catch (err) {
 			console.error('Failed to delete note:', err);
@@ -410,7 +409,7 @@ export default function DirectoryTree({ app, selectedNote, onNoteSelect, onNoteD
 		} finally {
 			setIsDeleting(false);
 		}
-	}, [tenant, deleteNotePath, isDeleting, MarkdownNotesAPI, selectedNote, onNoteDeleted]);
+	}, [tenant, deleteNotePath, isDeleting, selectedNote]);
 
 	// Create directory in root (header button)
 	const handleCreateDirInRoot = useCallback(async () => {
@@ -477,7 +476,7 @@ export default function DirectoryTree({ app, selectedNote, onNoteSelect, onNoteD
 			// If the selected note was inside the renamed directory, update navigation
 			if (selectedNote && selectedNote.startsWith(renameDirPath + '/')) {
 				const newNotePath = selectedNote.replace(renameDirPath, newPath);
-				onNoteSelect(newNotePath);
+				navigate(`/notes/${newNotePath}`);
 			}
 
 			setRenameDirModalOpen(false);
@@ -491,7 +490,7 @@ export default function DirectoryTree({ app, selectedNote, onNoteSelect, onNoteD
 		} finally {
 			setIsRenamingDir(false);
 		}
-	}, [tenant, renameDirPath, renameDirNewName, isRenamingDir, MarkdownNotesAPI, selectedNote, onNoteSelect]);
+	}, [tenant, renameDirPath, renameDirNewName, isRenamingDir, MarkdownNotesAPI, selectedNote]);
 
 	// Handle opening directory delete modal
 	const handleOpenDeleteDirModal = useCallback((dirPath) => {
@@ -508,16 +507,7 @@ export default function DirectoryTree({ app, selectedNote, onNoteSelect, onNoteD
 		setDeleteDirError(null);
 
 		try {
-			await MarkdownNotesAPI.delete(`${tenant}/directory/${deleteDirPath}`);
-
-			// Refresh the tree
-			// TODO: await loadTree(false);
-
-			// If the selected note was inside the deleted directory, notify parent
-			if (selectedNote && selectedNote.startsWith(deleteDirPath + '/') && onNoteDeleted) {
-				onNoteDeleted(selectedNote);
-			}
-
+			await MarkdownNotesAPI.delete(`${tenant}/directory/${deleteDirPath}`);		
 			setDeleteDirModalOpen(false);
 		} catch (err) {
 			console.error('Failed to delete directory:', err);
@@ -525,7 +515,7 @@ export default function DirectoryTree({ app, selectedNote, onNoteSelect, onNoteD
 		} finally {
 			setIsDeletingDir(false);
 		}
-	}, [tenant, deleteDirPath, isDeletingDir, MarkdownNotesAPI, selectedNote, onNoteDeleted]);
+	}, [tenant, deleteDirPath, isDeletingDir, selectedNote]);
 
 
 	const expandedPaths = getExpandedPaths(selectedNote);
@@ -551,7 +541,6 @@ export default function DirectoryTree({ app, selectedNote, onNoteSelect, onNoteD
 						key={item.path}
 						item={item}
 						selectedNote={selectedNote}
-						onNoteSelect={onNoteSelect}
 						onRenameNote={handleOpenRenameModal}
 						onDeleteNote={handleOpenDeleteModal}
 						onRenameDirectory={handleOpenRenameDirModal}

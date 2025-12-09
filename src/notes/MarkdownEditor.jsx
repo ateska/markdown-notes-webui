@@ -17,6 +17,7 @@ const MarkdownEditor = forwardRef(function MarkdownEditor({
 	onCursorChange,
 	onScroll,
 	placeholder = 'Start writing your note...',
+	notePath,
 	...props
 }, ref) {
 	const theme = useAppSelector(state => state.theme);
@@ -126,13 +127,7 @@ const MarkdownEditor = forwardRef(function MarkdownEditor({
 			if (isUpdatingRef.current) return;
 			
 			if (onChange) {
-				// Create a synthetic event-like object for compatibility
-				const syntheticEvent = {
-					target: {
-						value: editor.getValue()
-					}
-				};
-				onChange(syntheticEvent);
+				onChange(editor.getValue(), notePath);
 			}
 		});
 
@@ -158,7 +153,7 @@ const MarkdownEditor = forwardRef(function MarkdownEditor({
 			editor.dispose();
 			editorRef.current = null;
 		};
-	}, []);
+	}, [notePath]);
 
 	// Update value when prop changes (from external source)
 	useEffect(() => {
