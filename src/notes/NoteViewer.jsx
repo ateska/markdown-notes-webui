@@ -15,6 +15,11 @@ export default function NoteViewer({
 	setSidebarVisible,
 	sidebarVisible
 }) {
+	if (notePath === null) {
+		// No note selected, don't render anything
+		return null;
+	}
+
 	const tenant = useAppSelector(state => state.tenant?.current);
 	const MarkdownNotesAPI = app.axiosCreate("markdown-notes");
 
