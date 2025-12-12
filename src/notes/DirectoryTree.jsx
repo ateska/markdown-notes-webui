@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router';
+import { useNavigate } from 'react-router';
 
 import {
 	Spinner,
@@ -7,6 +7,7 @@ import {
 	Card, CardHeader, CardBody,
 	Modal, ModalHeader, ModalBody, ModalFooter
 } from 'reactstrap';
+
 import { useAppSelector } from 'asab_webui_components';
 
 import './DirectoryTree.scss';
@@ -218,12 +219,10 @@ function getExpandedPaths(selectedNote) {
 	return paths;
 }
 
-export default function DirectoryTree({app}) {
+export default function DirectoryTree({app, selectedNote}) {
 	const tenant = useAppSelector(state => state.tenant?.current);
 	const tree = useAppSelector(state => state.notes.tree);
 	const navigate = useNavigate();
-
-	let { "*": selectedNote } = useParams();
 
 	if (tree === "init") {
 		// The notes tree has not been loaded yet, show a loading spinner
@@ -242,7 +241,6 @@ export default function DirectoryTree({app}) {
 	const MarkdownNotesAPI = app.axiosCreate("markdown-notes");
 
 	const [recentlyChangedPaths, setRecentlyChangedPaths] = useState(new Set());
-	const [isCreating, setIsCreating] = useState(false);
 
 	// Rename modal state
 	const [renameModalOpen, setRenameModalOpen] = useState(false);
@@ -270,8 +268,19 @@ export default function DirectoryTree({app}) {
 	const [isDeletingDir, setIsDeletingDir] = useState(false);
 	const [deleteDirError, setDeleteDirError] = useState(null);
 
-	// Creating directory state
+	// Create note modal state
+	const [createNoteModalOpen, setCreateNoteModalOpen] = useState(false);
+	const [createNoteDir, setCreateNoteDir] = useState('');
+	const [createNoteName, setCreateNoteName] = useState('');
+	const [isCreatingNote, setIsCreatingNote] = useState(false);
+	const [createNoteError, setCreateNoteError] = useState(null);
+
+	// Create directory modal state
+	const [createDirModalOpen, setCreateDirModalOpen] = useState(false);
+	const [createDirParent, setCreateDirParent] = useState('');
+	const [createDirName, setCreateDirName] = useState('');
 	const [isCreatingDir, setIsCreatingDir] = useState(false);
+	const [createDirError, setCreateDirError] = useState(null);
 	
 	const knownMtimesRef = useRef({});
 
@@ -286,55 +295,49 @@ export default function DirectoryTree({app}) {
 		return () => clearTimeout(timeoutId);
 	}, [recentlyChangedPaths]);
 
-	// Create note in root (header button)
-	const handleCreateNoteInRoot = useCallback(async () => {
-		if (!tenant || isCreating) return;
+	// Open create note modal for root
+	const handleOpenCreateNoteModal = useCallback((directory = '') => {
+		setCreateNoteDir(directory);
+		setCreateNoteName('');
+		setCreateNoteError(null);
+		setCreateNoteModalOpen(true);
+	}, []);
 
-		setIsCreating(true);
+	// Create note submission
+	const handleCreateNoteSubmit = useCallback(async () => {
+		if (!tenant || !createNoteName.trim() || isCreatingNote) return;
+
+		setIsCreatingNote(true);
+		setCreateNoteError(null);
 
 		try {
-			const response = await MarkdownNotesAPI.post(`${tenant}/note-create`, { directory: "" });
+			const response = await MarkdownNotesAPI.post(`${tenant}/note-create`, {
+				directory: createNoteDir,
+				name: createNoteName.trim()
+			});
 			const newNotePath = response.data.data.path;
 			
 			// Remove .md extension for the route
 			const notePath = newNotePath.endsWith('.md') ? newNotePath.slice(0, -3) : newNotePath;
 			
 			// Refresh the tree to show the new note
-			// TODO: await loadTree(false);
+			app.locateService("MarkdownNotesService").loadNodeTree();
+			
+			setCreateNoteModalOpen(false);
 			
 			// Select/open the new note
 			navigate(`/notes/${notePath}`);
 		} catch (err) {
-			app.addAlertFromException(err, 'Failed to create note');
+			console.error('Failed to create note:', err);
+			if (err.response?.status === 409) {
+				setCreateNoteError('A note with this name already exists');
+			} else {
+				setCreateNoteError('Failed to create note');
+			}
 		} finally {
-			setIsCreating(false);
+			setIsCreatingNote(false);
 		}
-	}, [tenant, isCreating]);
-
-	// Create note in a specific directory (directory hover button)
-	const handleCreateNoteInDir = useCallback(async (directory) => {
-		if (!tenant || isCreating) return;
-
-		setIsCreating(true);
-
-		try {
-			const response = await MarkdownNotesAPI.post(`${tenant}/note-create`, { directory });
-			const newNotePath = response.data.data.path;
-			
-			// Remove .md extension for the route
-			const notePath = newNotePath.endsWith('.md') ? newNotePath.slice(0, -3) : newNotePath;
-			
-			// Refresh the tree to show the new note
-			// TODO: await loadTree(false);
-			
-			// Select/open the new note
-			navigate(`/notes/${notePath}`);
-		} catch (err) {
-			app.addAlertFromException(err, 'Failed to create note');
-		} finally {
-			setIsCreating(false);
-		}
-	}, [tenant, isCreating]);
+	}, [tenant, createNoteDir, createNoteName, isCreatingNote]);
 
 	// Handle opening rename modal
 	const handleOpenRenameModal = useCallback((notePath, currentName) => {
@@ -361,8 +364,8 @@ export default function DirectoryTree({app}) {
 			// Remove .md extension for route
 			const newNotePath = newPath.endsWith('.md') ? newPath.slice(0, -3) : newPath;
 
-			// Refresh the tree
-			// TOOD :await loadTree(false);
+			// Reload the tree
+			app.locateService("MarkdownNotesService").loadNodeTree();
 
 			// If the renamed note was selected, navigate to the new path
 			if (selectedNote === renameNotePath) {
@@ -400,7 +403,7 @@ export default function DirectoryTree({app}) {
 			await MarkdownNotesAPI.delete(`${tenant}/note/${deleteNotePath}`);
 
 			// Refresh the tree
-			// TODO: await loadTree(false);
+			app.locateService("MarkdownNotesService").loadNodeTree();
 
 			setDeleteModalOpen(false);
 		} catch (err) {
@@ -411,41 +414,42 @@ export default function DirectoryTree({app}) {
 		}
 	}, [tenant, deleteNotePath, isDeleting, selectedNote]);
 
-	// Create directory in root (header button)
-	const handleCreateDirInRoot = useCallback(async () => {
-		if (!tenant || isCreatingDir) return;
+	// Open create directory modal
+	const handleOpenCreateDirModal = useCallback((parentDirectory = '') => {
+		setCreateDirParent(parentDirectory);
+		setCreateDirName('');
+		setCreateDirError(null);
+		setCreateDirModalOpen(true);
+	}, []);
+
+	// Create directory submission
+	const handleCreateDirSubmit = useCallback(async () => {
+		if (!tenant || !createDirName.trim() || isCreatingDir) return;
 
 		setIsCreatingDir(true);
+		setCreateDirError(null);
 
 		try {
-			await MarkdownNotesAPI.post(`${tenant}/directory-create`, { parent_directory: "" });
+			await MarkdownNotesAPI.post(`${tenant}/directory-create`, {
+				parent_directory: createDirParent,
+				name: createDirName.trim()
+			});
 			
 			// Refresh the tree to show the new directory
-			// TODOawait loadTree(false);
+			app.locateService("MarkdownNotesService").loadNodeTree();
+			
+			setCreateDirModalOpen(false);
 		} catch (err) {
-			app.addAlertFromException(err, 'Failed to create directory');
+			console.error('Failed to create directory:', err);
+			if (err.response?.status === 409) {
+				setCreateDirError('A directory with this name already exists');
+			} else {
+				setCreateDirError('Failed to create directory');
+			}
 		} finally {
 			setIsCreatingDir(false);
 		}
-	}, [tenant, MarkdownNotesAPI, isCreatingDir]);
-
-	// Create directory in a specific directory (directory hover button)
-	const handleCreateDirInDir = useCallback(async (parentDirectory) => {
-		if (!tenant || isCreatingDir) return;
-
-		setIsCreatingDir(true);
-
-		try {
-			await MarkdownNotesAPI.post(`${tenant}/directory-create`, { parent_directory: parentDirectory });
-			
-			// Refresh the tree to show the new directory
-			// TODO: await loadTree(false);
-		} catch (err) {
-			app.addAlertFromException(err, 'Failed to create directory');
-		} finally {
-			setIsCreatingDir(false);
-		}
-	}, [tenant, MarkdownNotesAPI, isCreatingDir]);
+	}, [tenant, createDirParent, createDirName, isCreatingDir]);
 
 	// Handle opening directory rename modal
 	const handleOpenRenameDirModal = useCallback((dirPath, currentName) => {
@@ -471,7 +475,7 @@ export default function DirectoryTree({app}) {
 			const newPath = response.data.data.path;
 
 			// Refresh the tree
-			// TODO: await loadTree(false);
+			app.locateService("MarkdownNotesService").loadNodeTree();
 
 			// If the selected note was inside the renamed directory, update navigation
 			if (selectedNote && selectedNote.startsWith(renameDirPath + '/')) {
@@ -509,6 +513,7 @@ export default function DirectoryTree({app}) {
 		try {
 			await MarkdownNotesAPI.delete(`${tenant}/directory/${deleteDirPath}`);		
 			setDeleteDirModalOpen(false);
+			app.locateService("MarkdownNotesService").loadNodeTree();
 		} catch (err) {
 			console.error('Failed to delete directory:', err);
 			setDeleteDirError('Failed to delete directory');
@@ -524,10 +529,10 @@ export default function DirectoryTree({app}) {
 		<Card className="directory-tree-container h-100">
 			<CardHeader className='card-header-flex'>
 				<div className="flex-fill"> </div>
-				<Button color="primary" outline onClick={handleCreateDirInRoot} title="Create directory in root" disabled={isCreatingDir}>
+				<Button color="primary" outline onClick={() => handleOpenCreateDirModal('')} title="Create directory in root">
 					<i className="bi bi-folder-plus"></i>
 				</Button>
-				<Button color="primary" outline onClick={handleCreateNoteInRoot} title="Create note in root" disabled={isCreating}>
+				<Button color="primary" outline onClick={() => handleOpenCreateNoteModal('')} title="Create note in root">
 					<i className="bi bi-file-earmark-plus"></i>
 				</Button>
 				{/* <Button color="primary" outline onClick={handleRefresh}>
@@ -545,8 +550,8 @@ export default function DirectoryTree({app}) {
 						onDeleteNote={handleOpenDeleteModal}
 						onRenameDirectory={handleOpenRenameDirModal}
 						onDeleteDirectory={handleOpenDeleteDirModal}
-						onCreateNoteInDir={handleCreateNoteInDir}
-						onCreateDirInDir={handleCreateDirInDir}
+						onCreateNoteInDir={handleOpenCreateNoteModal}
+						onCreateDirInDir={handleOpenCreateDirModal}
 						level={0}
 						expandedPaths={expandedPaths}
 						recentlyChangedPaths={recentlyChangedPaths}
@@ -692,6 +697,86 @@ export default function DirectoryTree({app}) {
 						disabled={isDeletingDir}
 					>
 						{isDeletingDir ? <><Spinner size="sm" /> Deleting...</> : 'Delete'}
+					</Button>
+				</ModalFooter>
+			</Modal>
+
+			{/* Create Note Modal */}
+			<Modal isOpen={createNoteModalOpen} toggle={() => !isCreatingNote && setCreateNoteModalOpen(false)}>
+				<ModalHeader toggle={() => !isCreatingNote && setCreateNoteModalOpen(false)}>
+					Create Note{createNoteDir ? ` in ${createNoteDir}` : ''}
+				</ModalHeader>
+				<ModalBody>
+					<Input
+						type="text"
+						value={createNoteName}
+						onChange={(e) => setCreateNoteName(e.target.value)}
+						placeholder="Enter note name"
+						disabled={isCreatingNote}
+						onKeyDown={(e) => {
+							if (e.key === 'Enter' && createNoteName.trim()) {
+								handleCreateNoteSubmit();
+							}
+						}}
+						autoFocus
+					/>
+					{createNoteError && (
+						<div className="text-danger mt-2">
+							<i className="bi bi-exclamation-triangle me-1"></i>
+							{createNoteError}
+						</div>
+					)}
+				</ModalBody>
+				<ModalFooter>
+					<Button color="secondary" onClick={() => setCreateNoteModalOpen(false)} disabled={isCreatingNote}>
+						Cancel
+					</Button>
+					<Button 
+						color="primary" 
+						onClick={handleCreateNoteSubmit} 
+						disabled={isCreatingNote || !createNoteName.trim()}
+					>
+						{isCreatingNote ? <><Spinner size="sm" /> Creating...</> : 'Create'}
+					</Button>
+				</ModalFooter>
+			</Modal>
+
+			{/* Create Directory Modal */}
+			<Modal isOpen={createDirModalOpen} toggle={() => !isCreatingDir && setCreateDirModalOpen(false)}>
+				<ModalHeader toggle={() => !isCreatingDir && setCreateDirModalOpen(false)}>
+					Create Directory{createDirParent ? ` in ${createDirParent}` : ''}
+				</ModalHeader>
+				<ModalBody>
+					<Input
+						type="text"
+						value={createDirName}
+						onChange={(e) => setCreateDirName(e.target.value)}
+						placeholder="Enter directory name"
+						disabled={isCreatingDir}
+						onKeyDown={(e) => {
+							if (e.key === 'Enter' && createDirName.trim()) {
+								handleCreateDirSubmit();
+							}
+						}}
+						autoFocus
+					/>
+					{createDirError && (
+						<div className="text-danger mt-2">
+							<i className="bi bi-exclamation-triangle me-1"></i>
+							{createDirError}
+						</div>
+					)}
+				</ModalBody>
+				<ModalFooter>
+					<Button color="secondary" onClick={() => setCreateDirModalOpen(false)} disabled={isCreatingDir}>
+						Cancel
+					</Button>
+					<Button 
+						color="primary" 
+						onClick={handleCreateDirSubmit} 
+						disabled={isCreatingDir || !createDirName.trim()}
+					>
+						{isCreatingDir ? <><Spinner size="sm" /> Creating...</> : 'Create'}
 					</Button>
 				</ModalFooter>
 			</Modal>

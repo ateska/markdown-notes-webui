@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams } from 'react-router';
 import {
 	Card, CardHeader, CardBody,
 	Button,
@@ -12,14 +11,16 @@ import './NoteViewer.scss';
 
 export default function NoteViewer({ 
 	app, 
+	notePath,
 	setSidebarVisible,
 	sidebarVisible
 }) {
-	let { "*": notePath } = useParams();
-	if (notePath === null) {
+	if (notePath === null || notePath === undefined) {
 		// No note selected, don't render anything
 		return null;
 	}
+
+	console.log('notePath', notePath);
 
 	const tenant = useAppSelector(state => state.tenant?.current);
 	const MarkdownNotesAPI = app.axiosCreate("markdown-notes");
@@ -260,7 +261,7 @@ export default function NoteViewer({
 				<nav className="note-breadcrumb flex-fill">
 					<h3>
 						<i className="bi bi-filetype-md me-2 text-info"></i>
-						{notePath.split('/').map((segment, index, arr) => (
+						{notePath?.split('/').map((segment, index, arr) => (
 							<span key={index}>
 								{index > 0 && <span className="separator">/</span>}
 								<span className={index === arr.length - 1 ? 'current' : 'parent'}>
