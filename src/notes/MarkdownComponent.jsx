@@ -5,7 +5,7 @@ import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
 import { defaultSchema } from 'hast-util-sanitize';
 
-export function MarkdownComponent({ app, children }) {
+export function MarkdownComponent({ children }) {
 	return (<Markdown
 		remarkPlugins={[remarkGfm]}
 		rehypePlugins={[rehypeRaw, [rehypeSanitize, defaultSchema]]}
@@ -216,6 +216,7 @@ export function MarkdownComponent({ app, children }) {
 				const {node, ...rest} = props;
 				return <table
 					{...rest}
+					class="table"
 					data-start-line={node.position?.start.line}
 					data-start-column={node.position?.start.column}
 					data-end-line={node.position?.end.line}

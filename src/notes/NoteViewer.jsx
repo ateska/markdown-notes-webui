@@ -13,14 +13,14 @@ export default function NoteViewer({
 	app, 
 	notePath,
 	setSidebarVisible,
-	sidebarVisible
+	sidebarVisible,
+	setChatVisible,
+	chatVisible,
 }) {
 	if (notePath === null || notePath === undefined) {
 		// No note selected, don't render anything
 		return null;
 	}
-
-	console.log('notePath', notePath);
 
 	const tenant = useAppSelector(state => state.tenant?.current);
 	const MarkdownNotesAPI = app.axiosCreate("markdown-notes");
@@ -299,6 +299,13 @@ export default function NoteViewer({
 				>
 					<i className="bi bi-square"></i>
 				</Button>
+				<Button
+					className="ms-4"
+					outline={true}
+					onClick={() => setChatVisible(!chatVisible)}
+				>
+					<i className="bi bi-chat-left-text"></i>
+				</Button>
 			</CardHeader>
 
 			<CardBody className='p-0'>
@@ -318,7 +325,7 @@ export default function NoteViewer({
 					{(viewMode === 'preview' || viewMode === 'split') && (
 						<div className="note-viewer-preview" ref={previewRef}>
 							<div className="note-content">
-								<MarkdownComponent app={app}>{editedContent}</MarkdownComponent>
+								<MarkdownComponent>{editedContent}</MarkdownComponent>
 							</div>
 						</div>
 					)}

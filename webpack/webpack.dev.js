@@ -39,6 +39,8 @@ const devConfig = {
 
 	devServer: {
 		port: 3100,
+		compress: false,
+
 		client: {
 			overlay: false // Disable full screen overlay in dev mode (errors will be printer only in console)
 		},
@@ -50,6 +52,14 @@ const devConfig = {
 				pathRewrite: {'^/api/markdown-notes': ''},
 				secure: false, // Ignore certificate errors, trust self-signed certificate
 				changeOrigin: true, // Rewrite Host header to bypass CORS policy
+			},
+			{
+				context: ['/api/llm'],
+				// target: 'http://sp01.teskalabs.int:11434', // ollama
+				target: 'http://sp01:8888', // vllm
+				pathRewrite: {'^/api/llm': ''},
+				secure: false, // Ignore certificate errors, trust self-signed certificate
+				// changeOrigin: true, // Rewrite Host header to bypass CORS policy
 			},
 		],
 	},
