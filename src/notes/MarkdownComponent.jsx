@@ -216,7 +216,7 @@ export function MarkdownComponent({ children }) {
 				const {node, ...rest} = props;
 				return <table
 					{...rest}
-					class="table"
+					className="table"
 					data-start-line={node.position?.start.line}
 					data-start-column={node.position?.start.column}
 					data-end-line={node.position?.end.line}
