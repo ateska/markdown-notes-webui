@@ -224,20 +224,6 @@ export default function DirectoryTree({app, selectedNote}) {
 	const tree = useAppSelector(state => state.notes.tree);
 	const navigate = useNavigate();
 
-	if (tree === "init") {
-		// The notes tree has not been loaded yet, show a loading spinner
-		return (
-			<Card className="directory-tree-container h-100">
-				<CardHeader>
-					&nbsp;
-				</CardHeader>
-				<CardBody className="text-center mt-5">
-					<Spinner color="primary" />
-				</CardBody>
-			</Card>
-		);
-	}
-
 	const MarkdownNotesAPI = app.axiosCreate("markdown-notes");
 
 	const [recentlyChangedPaths, setRecentlyChangedPaths] = useState(new Set());
@@ -524,6 +510,20 @@ export default function DirectoryTree({app, selectedNote}) {
 
 
 	const expandedPaths = getExpandedPaths(selectedNote);
+
+	if (tree === "init") {
+		// The notes tree has not been loaded yet, show a loading spinner
+		return (
+			<Card className="directory-tree-container h-100">
+				<CardHeader>
+					&nbsp;
+				</CardHeader>
+				<CardBody className="text-center mt-5">
+					<Spinner color="primary" />
+				</CardBody>
+			</Card>
+		);
+	}
 
 	return (
 		<Card className="directory-tree-container h-100">

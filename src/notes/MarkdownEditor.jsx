@@ -26,6 +26,18 @@ const MarkdownEditor = forwardRef(function MarkdownEditor({
 	const editorRef = useRef(null);
 	const isUpdatingRef = useRef(false);
 
+	// Use refs for callbacks to avoid stale closure issues
+	const onChangeRef = useRef(onChange);
+	const onCursorChangeRef = useRef(onCursorChange);
+	const onScrollRef = useRef(onScroll);
+
+	// Keep refs up to date
+	useEffect(() => {
+		onChangeRef.current = onChange;
+		onCursorChangeRef.current = onCursorChange;
+		onScrollRef.current = onScroll;
+	});
+
 	// Expose textarea-like interface to parent component
 	useImperativeHandle(ref, () => ({
 		// Get cursor position (character offset from start)
@@ -126,22 +138,22 @@ const MarkdownEditor = forwardRef(function MarkdownEditor({
 		const contentChangeDisposable = editor.onDidChangeModelContent(() => {
 			if (isUpdatingRef.current) return;
 			
-			if (onChange) {
-				onChange(editor.getValue(), notePath);
+			if (onChangeRef.current) {
+				onChangeRef.current(editor.getValue(), notePath);
 			}
 		});
 
 		// Handle cursor position changes
 		const cursorChangeDisposable = editor.onDidChangeCursorPosition(() => {
-			if (onCursorChange) {
-				onCursorChange();
+			if (onCursorChangeRef.current) {
+				onCursorChangeRef.current();
 			}
 		});
 
 		// Handle scroll
 		const scrollDisposable = editor.onDidScrollChange(() => {
-			if (onScroll) {
-				onScroll();
+			if (onScrollRef.current) {
+				onScrollRef.current();
 			}
 		});
 

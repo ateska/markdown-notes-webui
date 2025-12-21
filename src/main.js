@@ -38,25 +38,37 @@ class MarkdownNotesService extends Service {
 	constructor(app, service_name) {
 		super(app, service_name);
 		this.MarkdownNotesAPI = this.App.axiosCreate("markdown-notes");
-		this._LoadInterval = null;
+		this.MarkdownNotesAPIURL = this.App.getServiceURL("markdown-notes");
 		
 		app.ReduxService.addReducer("notes", NotesReducer);
 	}
 
 	initialize() {
-		this.loadNodeTree();
-		this._LoadInterval = setInterval(() => {
-			this.loadNodeTree();
-		}, 10000);
+		const tenant = this.App.AppStore.getState().tenant?.current;
+
+		const eventSourceReconnect = (that) => {
+			that.treeEventSource = new EventSource(`${that.MarkdownNotesAPIURL}/${tenant}/tree`, {
+				method: "GET",
+				headers: {
+					"Accept": "text/event-stream",
+				},
+			});
+
+			that.treeEventSource.addEventListener("tree", (event) => {
+				const tree = JSON.parse(event.data);
+				that.App.AppStore.dispatch({type: "markdown-notes/setTree", payload: tree});
+			});
+		}
+		eventSourceReconnect(this);
+
+		setInterval(() => {
+			if (this.treeEventSource.readyState === EventSource.CLOSED) {
+				this.treeEventSource.op
+				eventSourceReconnect(this);
+			}
+		}, 1000);
 	}
 
-	dispose() {
-		// Likely never called, but just in case
-		if (this._LoadInterval) {
-			clearInterval(this._LoadInterval);
-			this._LoadInterval = null;
-		}
-	}
 
 	async loadNodeTree() {
 		const tenant = this.App.AppStore.getState().tenant?.current;
@@ -71,4 +83,5 @@ class MarkdownNotesService extends Service {
 		const tree = response?.data?.data || [];
 		this.App.AppStore.dispatch({type: "markdown-notes/setTree", payload: tree});
 	}
+
 }
