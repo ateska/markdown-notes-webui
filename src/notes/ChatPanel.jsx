@@ -17,8 +17,9 @@ export default function ChatPanel({ app, notePath }) {
 	const [chatId, setChatId] = useState(undefined);
 	const [messages, setMessages] = useState(undefined);
 	const [inputValue, setInputValue] = useState('');
-	const [isLoading, setIsLoading] = useState(false);
+	const [activeTasks, setActiveTasks] = useState(0);
 	const [cardFullscreen, setCardFullscreen] = useState(false);
+	const [model, setModel] = useState(undefined);
 
 	const inputRef = useRef(null);
 	const chatBottomRef = useRef(null);
@@ -31,21 +32,23 @@ export default function ChatPanel({ app, notePath }) {
 
 		switch (message.type) {
 
-			case 'chat.new':
+			case 'chat.mounted':
 				setChatId(message.chat_id);
+				setModel(message.model);
+				return;
+
+			case 'tasks.updated':
+				setActiveTasks(message.count);
 				return;
 
 			// Responses from /v1/responses / LLMChatProviderV1Response
 			case 'v1r.response.created':
-				setIsLoading(true);
 				return;
 
 			case 'v1r.response.in_progress':
-				setIsLoading(true);
 				return;
 
 			case 'v1r.response.completed':
-				setIsLoading(false);
 				setTimeout(() => {
 					chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
 				}, 200);	
@@ -65,7 +68,11 @@ export default function ChatPanel({ app, notePath }) {
 				if (message.data.item.role !== undefined) {
 					msg.role = message.data.item.role;
 				}
-				
+
+				if (message.data.item.name !== undefined) {
+					msg.name = message.data.item.name;
+				}
+
 				setMessages(prev => [
 					...prev,
 					msg,
@@ -79,7 +86,11 @@ export default function ChatPanel({ app, notePath }) {
 				setMessages(prev => [
 					...prev.map(
 						msg => msg.item_id === message.data.item_id
-						? { ...msg, status: 'done' }
+						? {
+							...msg,
+							status: 'done',
+							arguments: message.data.item.arguments || undefined,
+						}
 						: msg
 					),
 				]);
@@ -157,12 +168,12 @@ export default function ChatPanel({ app, notePath }) {
 			}
 			websocket.onclose = () => {
 				console.log("Disconnected from LLM Chat");
-				setIsLoading(false);
+				setActiveTasks(0);
 				websocketRef.current = null;
 			}
 			websocket.onerror = (event) => {
 				console.error("Error connecting to LLM Chat:", event);
-				setIsLoading(false);
+				setActiveTasks(0);
 				// TODO: Indicate the error in the chat
 				websocketRef.current = null;
 			}
@@ -199,11 +210,11 @@ export default function ChatPanel({ app, notePath }) {
 
 
 	const handleSend = async () => {
-		if (!inputValue.trim() || isLoading) return;
+		if (!inputValue.trim() || activeTasks > 0) return;
 		if (websocketRef.current === null) return;
 
 		const userMessage = inputValue.trim();
-		setIsLoading(true);
+		setActiveTasks(1); // One active task - will be replaced by the info from the LLM chat service
 		setInputValue('');
 
 		// Add user message
@@ -220,7 +231,7 @@ export default function ChatPanel({ app, notePath }) {
 		]);
 
 		websocketRef.current?.send(JSON.stringify({
-			type: 'user_message',
+			type: 'user.message.created',
 			content: userMessage,
 		}));
 	}
@@ -250,10 +261,10 @@ export default function ChatPanel({ app, notePath }) {
 				<Message key={index} app={app} message={message} />
 			))}
 
-			{isLoading
+			{activeTasks > 0
 			? <div className="chat-input-container d-flex">
 				<Spinner size="sm" className="ms-2 me-2" />
-				<span className="text-muted">Thinking...</span>
+				<span className="text-muted" title={`${activeTasks} tasks`}>Working ...</span>
 				<div style={{ flexGrow: '1' }}>&nbsp;</div>
 				<a
 					href="#"
@@ -281,11 +292,14 @@ export default function ChatPanel({ app, notePath }) {
 					style={{ overflow: 'hidden', resize: 'none' }}
 				/>
 				<div className="d-flex">
+					{model && (
+						<div className="text-muted" style={{ fontSize: '0.8em', marginTop: '4px' }}>{model}</div>
+					)}
 					<div style={{ flexGrow: '1' }}>&nbsp;</div>
 					<Button
 						color="link"
 						onClick={handleSend}
-						disabled={!inputValue.trim() || isLoading}
+						disabled={!inputValue.trim()}
 						size="sm"
 					>
 						<i className="bi bi-arrow-up-circle-fill"></i>
@@ -315,6 +329,8 @@ const Message = ({ app, message, ...props }) => {
 				default:
 					return <div>Unknown message role: {message.role}</div>;
 			}
+		case 'function_call':
+			return <FunctionCallMessage app={app} message={message} {...props} />;
 		default:
 			return <div>Unknown message type: {message.type}</div>;
 	}
@@ -355,5 +371,13 @@ function ErrorMessage({ app, message, ...props }) {
 	return <div className="mb-3 text-danger">
 		<i className="bi bi-exclamation-triangle me-1"></i>
 		<span>Error: {message.content}</span>
+	</div>;
+}
+
+function FunctionCallMessage({ app, message, ...props }) {
+	return <div className="mb-3 text-muted mb-3" style={{ fontSize: '0.8em' }}>
+		<span>Calling function <code>{message.name}</code> ...</span>
+		{/* <span>{message.status}</span>
+		<span>{message.arguments}</span> */}
 	</div>;
 }
