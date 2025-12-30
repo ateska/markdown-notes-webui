@@ -1,0 +1,30 @@
+@keyframes chat-panel-busy-animation {
+	0%		{ opacity: 1; }
+	50%		{ opacity: 0.4; }
+	100%	{ opacity: 1; }
+}
+ 
+@-o-keyframes chat-panel-busy-animation{
+	0%		{ opacity: 1; }
+	50%		{ opacity: 0.4; }
+	100%	{ opacity: 1; }
+}
+ 
+@-moz-keyframes chat-panel-busy-animation{
+	0%		{ opacity: 1; }
+	50%		{ opacity: 0.4; }
+	100%	{ opacity: 1; }
+}
+ 
+@-webkit-keyframes chat-panel-busy-animation{
+	0%		{ opacity: 1; }
+	50%		{ opacity: 0.4; }
+	100%	{ opacity: 1; }
+}
+  
+.chat-panel-animate-busy {
+	-webkit-animation: chat-panel-busy-animation 3s infinite;
+	-moz-animation: chat-panel-busy-animation 3s infinite;
+	-o-animation: chat-panel-busy-animation 3s infinite;
+	animation: chat-panel-busy-animation 3s infinite;
+}

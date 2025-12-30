@@ -4,18 +4,21 @@ import {
 	Spinner,
 	Card, CardHeader, CardBody,
 	Collapse,
+	Container, Row, Col,
 } from 'reactstrap';
 
 import { useAppSelector, FullscreenButton } from 'asab_webui_components';
 
 import { MarkdownComponent } from './MarkdownComponent.jsx';
 
+import './ChatPanel.scss';
+
 export default function ChatPanel({ app, notePath }) {
 	const tenant = useAppSelector(state => state.tenant?.current);
 	const MarkdownNotesAPI = app.axiosCreate("markdown-notes");
 
-	const [chatId, setChatId] = useState(undefined);
-	const [messages, setMessages] = useState(undefined);
+	const [conversationId, setConversationId] = useState(undefined);
+	const [items, setItems] = useState(undefined);
 	const [inputValue, setInputValue] = useState('');
 	const [activeTasks, setActiveTasks] = useState(0);
 	const [cardFullscreen, setCardFullscreen] = useState(false);
@@ -27,13 +30,13 @@ export default function ChatPanel({ app, notePath }) {
 
 	const websocketRef = useRef(null);
 
-	// This is a reply message from the LLM chat service to the client.
+	// This is a reply message from the LLM conversation service to the client.
 	const handleReply = (message) => {
 
 		switch (message.type) {
 
 			case 'chat.mounted':
-				setChatId(message.chat_id);
+				setConversationId(message.conversation_id);
 				setModel(message.model);
 				return;
 
@@ -41,98 +44,38 @@ export default function ChatPanel({ app, notePath }) {
 				setActiveTasks(message.count);
 				return;
 
-			// Responses from /v1/responses / LLMChatProviderV1Response
-			case 'v1r.response.created':
+			case 'update.full':
+				setConversationId(message.conversation_id);
+				setItems(message.items);
 				return;
 
-			case 'v1r.response.in_progress':
-				return;
-
-			case 'v1r.response.completed':
-				setTimeout(() => {
-					chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-				}, 200);	
-				return;
-
-			case 'v1r.response.output_item.added':
-				
-				// Add a new message
-				let msg = {
-					item_id: message.data.item.id,
-					status: message.data.item.status, // in_progress
-					type: message.data.item.type,  // "message" / "reasoning"
-					timestamp: new Date(),
-					content: '',
-				};
-
-				if (message.data.item.role !== undefined) {
-					msg.role = message.data.item.role;
-				}
-
-				if (message.data.item.name !== undefined) {
-					msg.name = message.data.item.name;
-				}
-
-				setMessages(prev => [
+			case 'item.appended':
+				setItems(prev => [
 					...prev,
-					msg,
+					message.item,
 				]);
-
 				chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-
 				return;
 
-			case 'v1r.response.output_item.done':
-				setMessages(prev => [
+			case 'item.delta':
+				setItems(prev => [
 					...prev.map(
-						msg => msg.item_id === message.data.item_id
-						? {
-							...msg,
-							status: 'done',
-							arguments: message.data.item.arguments || undefined,
-						}
-						: msg
-					),
-				]);
-				return;
-
-			case 'v1r.response.output_text.delta':
-				setMessages(prev => [
-					...prev.map(
-						msg => msg.item_id === message.data.item_id
-						? { ...msg, content: msg.content + message.data.delta }
-						: msg
+						originalMessage => originalMessage.key === message.key
+						? { ...originalMessage, content: originalMessage.content + message.delta }
+						: originalMessage
 					),
 				]);
 				chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
 				return;
 
-			case 'v1r.response.output_text.done':
-				return;
-	
-			case 'v1r.response.reasoning_text.delta':
-				setMessages(prev => [
+			case 'item.updated':
+				setItems(prev => [
 					...prev.map(
-						msg => msg.item_id === message.data.item_id
-						? { ...msg, content: msg.content + message.data.delta }
-						: msg
+						originalMessage => originalMessage.key === message.item.key
+						? message.item
+						: originalMessage
 					),
 				]);
-				return;
-
-			case 'v1r.response.reasoning_text.done':
-				return;
-
-			case 'v1r.response.content_part.added':
-				return;
-			
-			case 'v1r.response.content_part.done':
-				return;
-
-			case 'v1r.response.reasoning_part.added':
-				return;
-			
-			case 'v1r.response.reasoning_part.done':
 				return;
 	
 			default:
@@ -152,13 +95,13 @@ export default function ChatPanel({ app, notePath }) {
 			}
 
 			let param = '';
-			if (chatId) {
-				param = `?chat_id=${chatId}`;
+			if (conversationId) {
+				param = `?conversation_id=${conversationId}`;
 			} else {
 				param = '';
 			}
 
-			const websocket = app.createWebSocket("markdown-notes", `${tenant}/llmchat${param}`);
+			const websocket = app.createWebSocket("markdown-notes", `${tenant}/llm/conversation${param}`);
 			websocketRef.current = websocket;
 			websocket.onopen = () => {
 				console.log("Connected to LLM Chat");
@@ -214,170 +157,194 @@ export default function ChatPanel({ app, notePath }) {
 		if (websocketRef.current === null) return;
 
 		const userMessage = inputValue.trim();
-		setActiveTasks(1); // One active task - will be replaced by the info from the LLM chat service
+		setActiveTasks(1); // One active task - will be replaced by the info from the LLM conversation service
 		setInputValue('');
 
-		// Add user message
-		const newUserMessage = {
-			type: 'message',
-			role: 'user',
-			content: userMessage,
-			timestamp: new Date(),
-		};
-		
-		setMessages(prev => [
-			...prev.filter(message => message.type !== 'error'),
-			newUserMessage,
-		]);
 
 		websocketRef.current?.send(JSON.stringify({
 			type: 'user.message.created',
 			content: userMessage,
+			model: model,
 		}));
 	}
 
-
 	const handleReset = () => {
-		setMessages([]);
-		setChatId(undefined);
+		setItems([]);
+		setConversationId(undefined);
+		setModel(undefined);
 		websocketRef.current?.close(); // Force to reconnect the websocket
 	}
 
 	return (<Card className={`h-100 ${cardFullscreen ? 'card-fullscreen' : ''}`}>
 		<CardHeader className='card-header-flex'>
 			<div className='flex-fill'>
-				<h3 title={chatId ? `Chat ID: ${chatId}` : ''}>Chat</h3>
+				<h3 title={conversationId ? `Conversation ID: ${conversationId}` : ''}>
+					<i className="bi bi-robot me-2"></i>
+					Assistant
+				</h3>
 			</div>
 			<Button
 				color="warning"
 				outline
+				title="Reset the chat"
 				onClick={handleReset}>
 				<i className="bi bi-x-lg"></i>
 			</Button>
 			<FullscreenButton fullscreen={cardFullscreen} setFullscreen={setCardFullscreen} />
 		</CardHeader>
 		<CardBody className="overflow-scroll">
-			{messages?.map((message, index) => (
-				<Message key={index} app={app} message={message} />
-			))}
+			<Container className="p-0">
+				{items?.map((item) => (
+					<Item key={item.key} app={app} item={item} />
+				))}
 
-			{activeTasks > 0
-			? <div className="chat-input-container d-flex">
-				<Spinner size="sm" className="ms-2 me-2" />
-				<span className="text-muted" title={`${activeTasks} tasks`}>Working ...</span>
-				<div style={{ flexGrow: '1' }}>&nbsp;</div>
-				<a
-					href="#"
-					className="text-danger me-2"
-					onClick={(e) => {
-						e.preventDefault();
-						controllerRef.current?.abort();
-						controllerRef.current = null;
-					}}
-				>
-					<i className="bi bi-stop-circle" title="Stop"></i>
-				</a>
-			</div>
+				{activeTasks > 0
+					? <Row>
+						<Col>
+							<Spinner size="sm" className="ms-2 me-2" />
+							<span className="text-muted" title={`${activeTasks} tasks`}>Working ...</span>
+						</Col>
+						<Col className="text-end">
+							<a
+								href="#"
+								className="text-danger me-2"
+								onClick={(e) => {
+									e.preventDefault();
+									controllerRef.current?.abort();
+									controllerRef.current = null;
+								}}
+							>
+								<i className="bi bi-stop-circle" title="Stop"></i>
+							</a>
+						</Col>
+					</Row>
 
-			: <div className="chat-input-container">
-				<Input
-					innerRef={inputRef}
-					type="textarea"
-					rows="1"
-					value={inputValue}
-					onChange={(e) => setInputValue(e.target.value)}
-					placeholder="Type your message..."
-					disabled={chatId === undefined}
-					className="chat-input"
-					style={{ overflow: 'hidden', resize: 'none' }}
-				/>
-				<div className="d-flex">
-					{model && (
-						<div className="text-muted" style={{ fontSize: '0.8em', marginTop: '4px' }}>{model}</div>
-					)}
-					<div style={{ flexGrow: '1' }}>&nbsp;</div>
-					<Button
-						color="link"
-						onClick={handleSend}
-						disabled={!inputValue.trim()}
-						size="sm"
-					>
-						<i className="bi bi-arrow-up-circle-fill"></i>
-					</Button>
-				</div>
-			</div>}
+					: <>
+						<Row>
+							<Col>
+								<Input
+									innerRef={inputRef}
+									type="textarea"
+									rows="1"
+									value={inputValue}
+									onChange={(e) => setInputValue(e.target.value)}
+									placeholder="Type your message..."
+									disabled={conversationId === undefined}
+									className="chat-input"
+									style={{ overflow: 'hidden', resize: 'none' }}
+								/>
+							</Col>
+						</Row>
+						<Row>
+							<Col className="text-muted" style={{ fontSize: '0.8em', paddingTop: '4px' }} title="Model used for the chat">
+								{model && <>
+									<i className="bi bi-robot me-2"></i>
+									{model}
+								</>}
+							</Col>
+							<Col xs={2} className="text-end">
+								<Button
+								color="link"
+								onClick={handleSend}
+								disabled={!inputValue.trim()}
+								size="sm"
+								>
+									<i className="bi bi-arrow-up-circle-fill"></i>
+								</Button>
+							</Col>
+						</Row>
+					</>
+				}
 
-			<div ref={chatBottomRef}>&nbsp;</div>
+				<div ref={chatBottomRef}>&nbsp;</div>
+
+			</Container>
 	
 		</CardBody>
 	</Card>);
 }
 
 
-const Message = ({ app, message, ...props }) => {
-	switch (message.type) {
+const Item = ({ app, item }) => {
+	switch (item?.type) {
 		case 'error':
-			return <ErrorMessage app={app} message={message} {...props} />;
+			return <ErrorMessage app={app} item={item} />;
 		case 'reasoning':
-			return <ReasoningMessage app={app} message={message} {...props} />;
+			return <ReasoningMessage app={app} item={item} />;
 		case 'message':
-			switch (message.role) {
+			switch (item?.role) {
 				case 'user':
-					return <UserMessage app={app} message={message} {...props} />;
+					return <UserMessage app={app} item={item} />;
 				case 'assistant':
-					return <AssistantMessage app={app} message={message} {...props} />;	
+					return <AssistantMessage app={app} item={item} />;
 				default:
-					return <div>Unknown message role: {message.role}</div>;
+					return <div>Unknown message role: {item?.role}</div>;
 			}
 		case 'function_call':
-			return <FunctionCallMessage app={app} message={message} {...props} />;
+			return <FunctionCallMessage app={app} item={item} />;
 		default:
-			return <div>Unknown message type: {message.type}</div>;
+			return <div>Unknown item type: {item?.type}</div>;
 	}
 };
 
-
-function UserMessage({ app, message, ...props }) {
-	return <Card className="mb-3">
-		<CardBody className="pb-2 pt-2">
-			{message.content}
-		</CardBody>
-	</Card>;
+function UserMessage({ app, item }) {
+	return <Row data-item-key={item.key}>
+		<Col>
+			<div className="border p-2">
+				{item?.content}
+			</div>
+		</Col>
+	</Row>;
 }
 
+function AssistantMessage({ app, item }) {
+	const notCompleted = item?.status !== 'completed';
 
-function AssistantMessage({ app, message, ...props }) {
-	return <div className="mb-3">
-		<MarkdownComponent>{message.content}</MarkdownComponent>
-	</div>;
+	return <Row className="mt-2" data-item-key={item.key}>
+		<Col>
+			<MarkdownComponent>{item?.content}</MarkdownComponent>
+			{notCompleted ? <i className="bi bi-pencil-fill animate-busy"></i> : null}
+		</Col>
+	</Row>;
 }
 
-function ReasoningMessage({ app, message, ...props }) {
+function ReasoningMessage({ app, item }) {
+	const notCompleted = item?.status !== 'completed';
 	const [isReasoningOpen, setIsReasoningOpen] = useState(false);
 
-	return <div className="mb-3">
-
-		<Button color="link" onClick={() => setIsReasoningOpen(!isReasoningOpen)} size="sm">
-			<i className={`bi ${isReasoningOpen ? 'bi-chevron-down' : 'bi-chevron-right'}`}></i>
-		</Button>
-		<span className="text-muted" style={{ fontSize: '0.8em' }}>Reasoning ...</span>
-		<Collapse isOpen={isReasoningOpen} className="text-muted mb-3" style={{ fontSize: '0.8em' }}>
-			{message.content}
-		</Collapse>
-	</div>;
+	return <Row data-item-key={item.key}>
+		<Col>
+			<Button size="sm" className="text-muted ps-0" color="link" onClick={() => setIsReasoningOpen(!isReasoningOpen)}>
+				<i className={`bi ${isReasoningOpen ? 'bi-chevron-down' : 'bi-chevron-right'}`}></i>
+			</Button>
+			<span className={`text-muted ${notCompleted ? 'animate-busy' : ''}`} style={{ fontSize: '0.8em' }}>Reasoning ...</span>
+			<Collapse isOpen={isReasoningOpen} className="text-muted" style={{ fontSize: '0.8em' }}>
+				<div style={{ whiteSpace: 'pre-wrap' }}>{item?.content || ''}</div>
+			</Collapse>
+		</Col>
+	</Row>;
 }
 
-function ErrorMessage({ app, message, ...props }) {
+function FunctionCallMessage({ app, item }) {
+	const notFinished = item?.status !== 'finished';
+	const [isOpen, setIsOpen] = useState(false);
+
+	return <Row data-item-key={item.key}>
+		<Col className="text-muted" style={{ fontSize: '0.8em' }}>
+			<Button size="sm" className="text-muted ps-0" color="link" onClick={() => setIsOpen(!isOpen)}>
+				<i className={`bi ${isOpen ? 'bi-chevron-down' : 'bi-chevron-right'}`}></i>
+			</Button>
+			<span className={`${notFinished ? 'animate-busy' : ''}`} title={item.status}>Calling function <code>{item.name}</code> ...</span>
+			{item.content && item.content.length > 0 && <Collapse isOpen={isOpen} className="text-muted" style={{ fontSize: '0.8em' }}>
+				<code style={{ whiteSpace: 'pre-wrap' }}>{item.content}</code>
+			</Collapse>}	
+		</Col>
+	</Row>;
+}
+
+function ErrorMessage({ app, item}) {
 	return <div className="mb-3 text-danger">
 		<i className="bi bi-exclamation-triangle me-1"></i>
-		<span>Error: {message.content}</span>
-	</div>;
-}
-
-function FunctionCallMessage({ app, message, ...props }) {
-	return <div className="mb-3 text-muted mb-3" style={{ fontSize: '0.8em' }}>
-		<span>Calling function <code>{message.name}</code> ...</span>
-		{/* <span>{message.status}</span>
-		<span>{message.arguments}</span> */}
+		<span>Error: {item.content}</span>
 	</div>;
 }
