@@ -201,8 +201,8 @@ export default function ChatPanel({ app, notePath }) {
 				{activeTasks > 0
 					? <Row>
 						<Col>
-							<Spinner size="sm" className="ms-2 me-2" />
-							<span className="text-muted" title={`${activeTasks} tasks`}>Working ...</span>
+							<Spinner size="sm" className="me-2" />
+							<span className="text-muted chat-panel-animate-busy" title={`${activeTasks} tasks`} style={{ fontSize: '0.8em'}}>Working ...</span>
 						</Col>
 						<Col className="text-end">
 							<a
@@ -298,12 +298,9 @@ function UserMessage({ app, item }) {
 }
 
 function AssistantMessage({ app, item }) {
-	const notCompleted = item?.status !== 'completed';
-
 	return <Row className="mt-2" data-item-key={item.key}>
 		<Col>
 			<MarkdownComponent>{item?.content}</MarkdownComponent>
-			{notCompleted ? <i className="bi bi-pencil-fill animate-busy"></i> : null}
 		</Col>
 	</Row>;
 }
@@ -317,7 +314,7 @@ function ReasoningMessage({ app, item }) {
 			<Button size="sm" className="text-muted ps-0" color="link" onClick={() => setIsReasoningOpen(!isReasoningOpen)}>
 				<i className={`bi ${isReasoningOpen ? 'bi-chevron-down' : 'bi-chevron-right'}`}></i>
 			</Button>
-			<span className={`text-muted ${notCompleted ? 'animate-busy' : ''}`} style={{ fontSize: '0.8em' }}>Reasoning ...</span>
+			<span className={`text-muted ${notCompleted ? 'chat-panel-animate-busy' : ''}`} style={{ fontSize: '0.8em' }}>Reasoning ...</span>
 			<Collapse isOpen={isReasoningOpen} className="text-muted" style={{ fontSize: '0.8em' }}>
 				<div style={{ whiteSpace: 'pre-wrap' }}>{item?.content || ''}</div>
 			</Collapse>
@@ -334,7 +331,7 @@ function FunctionCallMessage({ app, item }) {
 			<Button size="sm" className="text-muted ps-0" color="link" onClick={() => setIsOpen(!isOpen)}>
 				<i className={`bi ${isOpen ? 'bi-chevron-down' : 'bi-chevron-right'}`}></i>
 			</Button>
-			<span className={`${notFinished ? 'animate-busy' : ''}`} title={item.status}>Calling function <code>{item.name}</code> ...</span>
+			<span className={`${notFinished ? 'chat-panel-animate-busy' : ''}`} title={item.status}>Calling function <code>{item.name}</code> ...</span>
 			{item.content && item.content.length > 0 && <Collapse isOpen={isOpen} className="text-muted" style={{ fontSize: '0.8em' }}>
 				<code style={{ whiteSpace: 'pre-wrap' }}>{item.content}</code>
 			</Collapse>}	
