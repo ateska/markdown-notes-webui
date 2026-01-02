@@ -22,7 +22,9 @@ export default function ChatPanel({ app, notePath }) {
 	const [inputValue, setInputValue] = useState('');
 	const [activeTasks, setActiveTasks] = useState(0);
 	const [cardFullscreen, setCardFullscreen] = useState(false);
+
 	const [model, setModel] = useState(undefined);
+	const [models, setModels] = useState(undefined);
 
 	const inputRef = useRef(null);
 	const chatBottomRef = useRef(null);
@@ -37,7 +39,8 @@ export default function ChatPanel({ app, notePath }) {
 
 			case 'chat.mounted':
 				setConversationId(message.conversation_id);
-				setModel(message.model);
+				setModel(message.models[0]);
+				setModels(message.models);
 				return;
 
 			case 'tasks.updated':
@@ -220,7 +223,7 @@ export default function ChatPanel({ app, notePath }) {
 					</Row>
 
 					: <>
-						<Row>
+						<Row className="mt-2">
 							<Col>
 								<Input
 									innerRef={inputRef}
@@ -236,13 +239,16 @@ export default function ChatPanel({ app, notePath }) {
 							</Col>
 						</Row>
 						<Row>
-							<Col className="text-muted" style={{ fontSize: '0.8em', paddingTop: '4px' }} title="Model used for the chat">
+							<Col className="text-muted" title="Model used for the chat">
 								{model && <>
-									<i className="bi bi-robot me-2"></i>
-									{model}
+									<select className="form-select" value={model} onChange={(e) => setModel(e.target.value)} style={{ fontSize: '0.8em' }} >
+										{models.map((model) => (
+											<option key={model} value={model}>{model}</option>
+										))}
+									</select>
 								</>}
 							</Col>
-							<Col xs={2} className="text-end">
+							<Col className="text-end">
 								<Button
 								color="link"
 								onClick={handleSend}
