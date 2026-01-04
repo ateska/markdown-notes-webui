@@ -25,10 +25,10 @@ export default function ChatPanel({ app, notePath }) {
 
 	const [model, setModel] = useState(undefined);
 	const [models, setModels] = useState(undefined);
+	const [modelSelector, setModelSelector] = useState(false);
 
 	const inputRef = useRef(null);
 	const chatBottomRef = useRef(null);
-	const controllerRef = useRef(null);
 
 	const websocketRef = useRef(null);
 
@@ -154,6 +154,12 @@ export default function ChatPanel({ app, notePath }) {
 		adjustTextareaHeight();
 	}, [inputValue]);
 
+	// Focus the textarea when activeTasks becomes 0
+	useEffect(() => {
+		if (activeTasks === 0) {
+			inputRef.current?.focus();
+		}
+	}, [activeTasks]);
 
 	const handleSend = async () => {
 		if (!inputValue.trim() || activeTasks > 0) return;
@@ -162,6 +168,7 @@ export default function ChatPanel({ app, notePath }) {
 		const userMessage = inputValue.trim();
 		setActiveTasks(1); // One active task - will be replaced by the info from the LLM conversation service
 		setInputValue('');
+		setModelSelector(false);
 
 
 		websocketRef.current?.send(JSON.stringify({
@@ -171,11 +178,28 @@ export default function ChatPanel({ app, notePath }) {
 		}));
 	}
 
+	const handleStop = () => {
+		websocketRef.current?.send(JSON.stringify({
+			type: 'conversation.stop',
+		}));
+	}
+
 	const handleReset = () => {
 		setItems([]);
 		setConversationId(undefined);
 		setModel(undefined);
 		websocketRef.current?.close(); // Force to reconnect the websocket
+	}
+
+	const handleRestart = (item) => {
+		console.log("Edit message:", item);
+
+		websocketRef.current?.send(JSON.stringify({
+			type: 'conversation.restart',
+			key: item.key,
+		}));
+
+		setInputValue(item.content);
 	}
 
 	return (<Card className={`h-100 ${cardFullscreen ? 'card-fullscreen' : ''}`}>
@@ -197,8 +221,15 @@ export default function ChatPanel({ app, notePath }) {
 		</CardHeader>
 		<CardBody className="overflow-scroll">
 			<Container className="p-0">
+
 				{items?.map((item) => (
-					<Item key={item.key} app={app} item={item} />
+					<Item
+						key={item.key}
+						app={app}
+						item={item}
+						handleRestart={handleRestart}
+						activeTasks={activeTasks}
+					/>
 				))}
 
 				{activeTasks > 0
@@ -208,17 +239,14 @@ export default function ChatPanel({ app, notePath }) {
 							<span className="text-muted chat-panel-animate-busy" title={`${activeTasks} tasks`} style={{ fontSize: '0.8em'}}>Working ...</span>
 						</Col>
 						<Col className="text-end">
-							<a
-								href="#"
-								className="text-danger me-2"
-								onClick={(e) => {
-									e.preventDefault();
-									controllerRef.current?.abort();
-									controllerRef.current = null;
-								}}
+							<Button
+								color="danger"
+								outline
+								onClick={handleStop}
+								size="sm"
 							>
 								<i className="bi bi-stop-circle" title="Stop"></i>
-							</a>
+							</Button>
 						</Col>
 					</Row>
 
@@ -231,6 +259,12 @@ export default function ChatPanel({ app, notePath }) {
 									rows="1"
 									value={inputValue}
 									onChange={(e) => setInputValue(e.target.value)}
+									onKeyDown={(e) => {
+										if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+											e.preventDefault();
+											handleSend();
+										}
+									}}
 									placeholder="Type your message..."
 									disabled={conversationId === undefined}
 									className="chat-input"
@@ -239,21 +273,22 @@ export default function ChatPanel({ app, notePath }) {
 							</Col>
 						</Row>
 						<Row>
-							<Col className="text-muted" title="Model used for the chat">
-								{model && <>
-									<select className="form-select" value={model} onChange={(e) => setModel(e.target.value)} style={{ fontSize: '0.8em' }} >
+							<Col className="text-muted" xs={10} title="Model used for the chat">
+								{model && (modelSelector
+									? <select className="form-select" value={model} onChange={(e) => setModel(e.target.value)} style={{ fontSize: '0.8em' }} >
 										{models.map((model) => (
 											<option key={model} value={model}>{model}</option>
 										))}
 									</select>
-								</>}
+									: <span className="text-muted" style={{ fontSize: '0.8em' }} onClick={() => setModelSelector(true)}>{model}</span>
+								)}
 							</Col>
 							<Col className="text-end">
 								<Button
-								color="link"
-								onClick={handleSend}
-								disabled={!inputValue.trim()}
-								size="sm"
+									color="link"
+									onClick={handleSend}
+									disabled={!inputValue.trim()}
+									size="sm"
 								>
 									<i className="bi bi-arrow-up-circle-fill"></i>
 								</Button>
@@ -271,39 +306,50 @@ export default function ChatPanel({ app, notePath }) {
 }
 
 
-const Item = ({ app, item }) => {
+const Item = ({item, ...props}) => {
 	switch (item?.type) {
 		case 'error':
-			return <ErrorMessage app={app} item={item} />;
+			return <ErrorMessage item={item} {...props} />;
 		case 'reasoning':
-			return <ReasoningMessage app={app} item={item} />;
+			return <ReasoningMessage item={item} {...props} />;
 		case 'message':
 			switch (item?.role) {
 				case 'user':
-					return <UserMessage app={app} item={item} />;
+					return <UserMessage item={item} {...props} />;
 				case 'assistant':
-					return <AssistantMessage app={app} item={item} />;
+					return <AssistantMessage item={item} {...props} />;
 				default:
 					return <div>Unknown message role: {item?.role}</div>;
 			}
 		case 'function_call':
-			return <FunctionCallMessage app={app} item={item} />;
+			return <FunctionCallMessage item={item} {...props} />;
 		default:
 			return <div>Unknown item type: {item?.type}</div>;
 	}
 };
 
-function UserMessage({ app, item }) {
-	return <Row data-item-key={item.key}>
+function UserMessage({ item, handleRestart, activeTasks }) {
+	return <Row className="chat-user-message-row" data-item-key={item.key}>
 		<Col>
-			<div className="border p-2">
+			<div className="border p-2 position-relative">
 				{item?.content}
+				<div className="chat-user-message-actions">
+					<Button
+						size="sm"
+						color="secondary"
+						title="Go back and edit this message"
+						disabled={activeTasks > 0}
+						onClick={() => {handleRestart(item)}}
+					>
+						<i className="bi bi-pencil"></i>
+					</Button>
+				</div>
 			</div>
 		</Col>
 	</Row>;
 }
 
-function AssistantMessage({ app, item }) {
+function AssistantMessage({ item }) {
 	return <Row className="mt-2" data-item-key={item.key}>
 		<Col>
 			<MarkdownComponent>{item?.content}</MarkdownComponent>
@@ -311,7 +357,7 @@ function AssistantMessage({ app, item }) {
 	</Row>;
 }
 
-function ReasoningMessage({ app, item }) {
+function ReasoningMessage({ item }) {
 	const notCompleted = item?.status !== 'completed';
 	const [isReasoningOpen, setIsReasoningOpen] = useState(false);
 
@@ -328,7 +374,7 @@ function ReasoningMessage({ app, item }) {
 	</Row>;
 }
 
-function FunctionCallMessage({ app, item }) {
+function FunctionCallMessage({ item }) {
 	const notFinished = item?.status !== 'finished';
 	const [isOpen, setIsOpen] = useState(false);
 
@@ -345,7 +391,7 @@ function FunctionCallMessage({ app, item }) {
 	</Row>;
 }
 
-function ErrorMessage({ app, item}) {
+function ErrorMessage({ item}) {
 	return <div className="mb-3 text-danger">
 		<i className="bi bi-exclamation-triangle me-1"></i>
 		<span>Error: {item.content}</span>

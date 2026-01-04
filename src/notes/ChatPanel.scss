@@ -28,3 +28,19 @@
 	-o-animation: chat-panel-busy-animation 3s infinite;
 	animation: chat-panel-busy-animation 3s infinite;
 }
+
+.chat-user-message-row {
+	.chat-user-message-actions {
+		position: absolute;
+		bottom: 4px;
+		right: 4px;
+		display: flex;
+		gap: 4px;
+		opacity: 0;
+		transition: opacity 0.15s ease-in-out;
+	}
+
+	&:hover .chat-user-message-actions {
+		opacity: 1;
+	}
+}
