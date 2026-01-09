@@ -15,7 +15,6 @@ import './ChatPanel.scss';
 
 export default function ChatPanel({ app, notePath }) {
 	const tenant = useAppSelector(state => state.tenant?.current);
-	const MarkdownNotesAPI = app.axiosCreate("markdown-notes");
 
 	const [conversationId, setConversationId] = useState(undefined);
 	const [items, setItems] = useState(undefined);
@@ -104,21 +103,28 @@ export default function ChatPanel({ app, notePath }) {
 				param = '';
 			}
 
-			const websocket = app.createWebSocket("markdown-notes", `${tenant}/llm/conversation${param}`);
+			const websocket = app.createWebSocket("llm-microlink", `${tenant}/llm/conversation${param}`);
 			websocketRef.current = websocket;
 			websocket.onopen = () => {
-				console.log("Connected to LLM Chat");
+				// Configure the conversation to use the notes prompt
+				websocketRef.current?.send(JSON.stringify({
+					type: 'conversation.instructions.update',
+					item: "/AI/Prompts/notes.yaml",
+					params: {
+						path: notePath,
+					}
+				}));
+		
 			}
 			websocket.onmessage = (event) => {
 				handleReply(JSON.parse(event.data));
 			}
 			websocket.onclose = () => {
-				console.log("Disconnected from LLM Chat");
 				setActiveTasks(0);
 				websocketRef.current = null;
 			}
 			websocket.onerror = (event) => {
-				console.error("Error connecting to LLM Chat:", event);
+				console.error("Error connecting to LLM Microlink:", event);
 				setActiveTasks(0);
 				// TODO: Indicate the error in the chat
 				websocketRef.current = null;
@@ -329,10 +335,10 @@ const Item = ({item, ...props}) => {
 };
 
 function UserMessage({ item, handleRestart, activeTasks }) {
-	return <Row className="chat-user-message-row" data-item-key={item.key}>
+	return <Row className="chat-user-message-row mt-2" data-item-key={item.key}>
 		<Col>
 			<div className="border p-2 position-relative">
-				{item?.content}
+				<div style={{ whiteSpace: 'pre-wrap' }}>{item?.content || ''}</div>
 				<div className="chat-user-message-actions">
 					<Button
 						size="sm"
@@ -361,7 +367,7 @@ function ReasoningMessage({ item }) {
 	const notCompleted = item?.status !== 'completed';
 	const [isReasoningOpen, setIsReasoningOpen] = useState(false);
 
-	return <Row data-item-key={item.key}>
+	return <Row className="mt-2" data-item-key={item.key}>
 		<Col>
 			<Button size="sm" className="text-muted ps-0" color="link" onClick={() => setIsReasoningOpen(!isReasoningOpen)}>
 				<i className={`bi ${isReasoningOpen ? 'bi-chevron-down' : 'bi-chevron-right'}`}></i>
@@ -378,7 +384,7 @@ function FunctionCallMessage({ item }) {
 	const notFinished = item?.status !== 'finished';
 	const [isOpen, setIsOpen] = useState(false);
 
-	return <Row data-item-key={item.key}>
+	return <Row className="mt-2" data-item-key={item.key}>
 		<Col className="text-muted" style={{ fontSize: '0.8em' }}>
 			<Button size="sm" className="text-muted ps-0" color="link" onClick={() => setIsOpen(!isOpen)}>
 				<i className={`bi ${isOpen ? 'bi-chevron-down' : 'bi-chevron-right'}`}></i>
@@ -392,7 +398,7 @@ function FunctionCallMessage({ item }) {
 }
 
 function ErrorMessage({ item}) {
-	return <div className="mb-3 text-danger">
+	return <div className="mt-2 text-danger">
 		<i className="bi bi-exclamation-triangle me-1"></i>
 		<span>Error: {item.content}</span>
 	</div>;
