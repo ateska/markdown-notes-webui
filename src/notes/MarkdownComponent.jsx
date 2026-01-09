@@ -5,8 +5,11 @@ import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
 import { defaultSchema } from 'hast-util-sanitize';
 
+import './MarkdownComponent.scss';
+
 export function MarkdownComponent({ children }) {
 	return (<Markdown
+		className="markdown-content"
 		remarkPlugins={[remarkGfm]}
 		rehypePlugins={[rehypeRaw, [rehypeSanitize, defaultSchema]]}
 		components={{

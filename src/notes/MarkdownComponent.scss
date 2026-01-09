@@ -1,0 +1,3 @@
+.markdown-content ol > li > p {
+	margin-bottom: 0;  // Otherwise list with nested paragraphs will have extra space
+}
