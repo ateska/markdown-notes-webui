@@ -52,6 +52,14 @@ const devConfig = {
 				pathRewrite: {'^/api/markdown-notes': ''},
 				secure: false, // Ignore certificate errors, trust self-signed certificate
 				changeOrigin: true, // Rewrite Host header to bypass CORS policy
+				//ws: true,
+			},
+			{
+				context: ['/api/llm-microlink'],
+				target: 'http://localhost:8920',
+				pathRewrite: {'^/api/llm-microlink': ''},
+				secure: false, // Ignore certificate errors, trust self-signed certificate
+				changeOrigin: true, // Rewrite Host header to bypass CORS policy
 				ws: true,
 			},
 			{
